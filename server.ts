@@ -8,6 +8,7 @@ import * as path from 'path';
 // Use createRequire to load whatsapp-web.js (CommonJS module) from ESM context
 const require = createRequire(import.meta.url);
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const puppeteer = require('puppeteer');
 
 const AUTH_PATH = '.wwebjs_auth';
 
@@ -15,8 +16,16 @@ const AUTH_PATH = '.wwebjs_auth';
 let qrCodeData: string | null = null;
 let clientStatus: 'initializing' | 'qr' | 'authenticated' | 'connected' | 'disconnected' = 'initializing';
 let lastError: string | null = null;
+let detectedPath: string | null = null;
 
 const createClient = () => {
+  try {
+    detectedPath = puppeteer.executablePath();
+    console.log(`[Puppeteer] Chemin détecté: ${detectedPath}`);
+  } catch (e) {
+    console.warn('[Puppeteer] Impossible de détecter le chemin par défaut.');
+  }
+
   const newClient = new Client({
     authStrategy: new LocalAuth({
       dataPath: AUTH_PATH,
@@ -32,10 +41,9 @@ const createClient = () => {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--disable-extensions',
         '--no-zygote',
       ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || detectedPath || undefined,
     },
   });
 
@@ -122,6 +130,7 @@ async function startServer() {
       whatsappStatus: clientStatus,
       hasQR: !!qrCodeData,
       lastError: lastError,
+      detectedPath: detectedPath,
       env: process.env.NODE_ENV,
       serverTime: new Date().toISOString() 
     });
