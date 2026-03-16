@@ -20,38 +20,51 @@ let detectedPath: string | null = null;
 
 const createClient = () => {
   // Recherche du binaire Chrome dans le cache Puppeteer
-  const findChrome = (dir: string): string | null => {
+  const findChromeRecursive = (dir: string): string | null => {
     if (!fs.existsSync(dir)) return null;
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      const fullPath = path.join(dir, file);
-      if (fs.statSync(fullPath).isDirectory()) {
-        const found = findChrome(fullPath);
-        if (found) return found;
-      } else if (file === 'chrome' || file === 'google-chrome') {
-        // Vérifier si c'est un exécutable (simplifié pour Render/Linux)
-        return fullPath;
+    try {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+          const found = findChromeRecursive(fullPath);
+          if (found) return found;
+        } else if (file === 'chrome' || file === 'google-chrome' || file === 'chrome-linux') {
+          // Sur Linux, le binaire est souvent nommé 'chrome' dans un dossier chrome-linux
+          console.log(`[Puppeteer-Check] Trouvé potentiel binaire : ${fullPath}`);
+          return fullPath;
+        }
       }
-    }
+    } catch (e) {}
     return null;
   };
 
   try {
-    // 1. Essayer de trouver dans le cache configuré dans .puppeteerrc.cjs
-    const localCache = path.join(process.cwd(), '.cache', 'puppeteer');
-    detectedPath = findChrome(localCache);
-
-    // 2. Si non trouvé, essayer le chemin environnement Render
-    if (!detectedPath && process.env.PUPPETEER_CACHE_DIR) {
-      detectedPath = findChrome(process.env.PUPPETEER_CACHE_DIR);
-    }
-
-    // 3. Dernier recours : chemin par défaut de puppeteer
-    if (!detectedPath) {
-      detectedPath = puppeteer.executablePath();
-    }
+    console.log('[Puppeteer] Lancement de la détection du binaire...');
     
-    console.log(`[Puppeteer] Binaire Chrome localisé : ${detectedPath}`);
+    // 1. Essayer d'abord la variable d'env explicite si elle est définie
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      detectedPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      console.log(`[Puppeteer] Utilisation de PUPPETEER_EXECUTABLE_PATH : ${detectedPath}`);
+    } else {
+      // 2. Essayer de trouver dans le cache configuré
+      const localCache = path.join(process.cwd(), '.cache', 'puppeteer');
+      console.log(`[Puppeteer] Recherche dans le cache local : ${localCache}`);
+      detectedPath = findChromeRecursive(localCache);
+
+      if (!detectedPath && process.env.PUPPETEER_CACHE_DIR) {
+        console.log(`[Puppeteer] Recherche dans PUPPETEER_CACHE_DIR : ${process.env.PUPPETEER_CACHE_DIR}`);
+        detectedPath = findChromeRecursive(process.env.PUPPETEER_CACHE_DIR);
+      }
+
+      // 3. Si rien n'est trouvé, seulement là on prend le défaut
+      if (!detectedPath) {
+        detectedPath = puppeteer.executablePath();
+        console.log(`[Puppeteer] Aucun binaire trouvé dans le cache, utilisation du défaut : ${detectedPath}`);
+      } else {
+        console.log(`[Puppeteer] Binaire Chrome localisé avec succès : ${detectedPath}`);
+      }
+    }
   } catch (e) {
     console.warn('[Puppeteer] Erreur lors de la détection du binaire:', e);
   }
