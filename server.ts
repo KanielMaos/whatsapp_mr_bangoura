@@ -19,11 +19,41 @@ let lastError: string | null = null;
 let detectedPath: string | null = null;
 
 const createClient = () => {
+  // Recherche du binaire Chrome dans le cache Puppeteer
+  const findChrome = (dir: string): string | null => {
+    if (!fs.existsSync(dir)) return null;
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      const fullPath = path.join(dir, file);
+      if (fs.statSync(fullPath).isDirectory()) {
+        const found = findChrome(fullPath);
+        if (found) return found;
+      } else if (file === 'chrome' || file === 'google-chrome') {
+        // Vérifier si c'est un exécutable (simplifié pour Render/Linux)
+        return fullPath;
+      }
+    }
+    return null;
+  };
+
   try {
-    detectedPath = puppeteer.executablePath();
-    console.log(`[Puppeteer] Chemin détecté: ${detectedPath}`);
+    // 1. Essayer de trouver dans le cache configuré dans .puppeteerrc.cjs
+    const localCache = path.join(process.cwd(), '.cache', 'puppeteer');
+    detectedPath = findChrome(localCache);
+
+    // 2. Si non trouvé, essayer le chemin environnement Render
+    if (!detectedPath && process.env.PUPPETEER_CACHE_DIR) {
+      detectedPath = findChrome(process.env.PUPPETEER_CACHE_DIR);
+    }
+
+    // 3. Dernier recours : chemin par défaut de puppeteer
+    if (!detectedPath) {
+      detectedPath = puppeteer.executablePath();
+    }
+    
+    console.log(`[Puppeteer] Binaire Chrome localisé : ${detectedPath}`);
   } catch (e) {
-    console.warn('[Puppeteer] Impossible de détecter le chemin par défaut.');
+    console.warn('[Puppeteer] Erreur lors de la détection du binaire:', e);
   }
 
   const newClient = new Client({
