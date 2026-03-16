@@ -14,28 +14,26 @@ const AUTH_PATH = '.wwebjs_auth';
 // ---- WhatsApp Client Setup ----
 let qrCodeData: string | null = null;
 let clientStatus: 'initializing' | 'qr' | 'authenticated' | 'connected' | 'disconnected' = 'initializing';
+let lastError: string | null = null;
 
 const createClient = () => {
   const newClient = new Client({
     authStrategy: new LocalAuth({
       dataPath: AUTH_PATH,
     }),
+    webVersionCache: {
+      type: 'remote',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1035216863.html',
+    },
     puppeteer: {
       headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
         '--disable-gpu',
         '--disable-extensions',
-        '--disable-software-rasterizer',
-        '--single-process',
-        '--disable-background-networking',
-        '--disable-default-apps',
-        '--disable-sync',
+        '--no-zygote',
       ],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     },
@@ -53,6 +51,7 @@ const createClient = () => {
     console.log('[WhatsApp] Client connecté et prêt !');
     clientStatus = 'connected';
     qrCodeData = null;
+    lastError = null;
   });
 
   newClient.on('authenticated', () => {
@@ -64,12 +63,14 @@ const createClient = () => {
   newClient.on('auth_failure', (msg: string) => {
     console.error('[WhatsApp] Échec d\'authentification:', msg);
     clientStatus = 'disconnected';
+    lastError = `Auth Failure: ${msg}`;
     qrCodeData = null;
   });
 
   newClient.on('disconnected', (reason: string) => {
     console.log('[WhatsApp] Client déconnecté:', reason);
     clientStatus = 'disconnected';
+    lastError = `Disconnected: ${reason}`;
     qrCodeData = null;
   });
 
@@ -82,11 +83,13 @@ let client = createClient();
 const initializeClient = () => {
   console.log('[WhatsApp] Initialisation du client...');
   clientStatus = 'initializing';
+  lastError = null;
   client.initialize()
     .then(() => console.log('[WhatsApp] client.initialize() a terminé (promesse résolue).'))
     .catch((err: Error) => {
       console.error('[WhatsApp] Erreur fatale d\'initialisation:', err);
       clientStatus = 'disconnected';
+      lastError = `Init Error: ${err.message}`;
     });
 };
 
@@ -118,6 +121,7 @@ async function startServer() {
       status: 'ok', 
       whatsappStatus: clientStatus,
       hasQR: !!qrCodeData,
+      lastError: lastError,
       env: process.env.NODE_ENV,
       serverTime: new Date().toISOString() 
     });
