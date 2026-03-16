@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: whatsapp-mr-bangoura
+    env: node
+    buildCommand: "npm install && npx puppeteer browsers install chrome && npm run build"
+    startCommand: "npm start"
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20
+    # Dépendances système pour Puppeteer sur Render
+    # Note: Render installe automatiquement les dépendances si chrome est détecté
