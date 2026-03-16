@@ -168,12 +168,43 @@ async function startServer() {
    * GET /api/health
    */
   app.get('/api/health', (_req, res) => {
+    const debugFs: any = {
+      cwd: process.cwd(),
+      cacheDir: path.join(process.cwd(), '.cache'),
+      content: []
+    };
+
+    try {
+      if (fs.existsSync(debugFs.cacheDir)) {
+        // Liste récursive limitée pour éviter de saturer le JSON
+        const listFiles = (dir: string, depth = 0): string[] => {
+          if (depth > 3) return [];
+          let results: string[] = [];
+          const files = fs.readdirSync(dir);
+          for (const file of files) {
+            const fullPath = path.join(dir, file);
+            results.push(fullPath.replace(process.cwd(), ''));
+            if (fs.statSync(fullPath).isDirectory()) {
+              results = results.concat(listFiles(fullPath, depth + 1));
+            }
+          }
+          return results;
+        };
+        debugFs.content = listFiles(debugFs.cacheDir).slice(0, 50);
+      } else {
+        debugFs.error = "Le dossier .cache n'existe pas.";
+      }
+    } catch (e: any) {
+      debugFs.error = e.message;
+    }
+
     res.json({ 
       status: 'ok', 
       whatsappStatus: clientStatus,
       hasQR: !!qrCodeData,
       lastError: lastError,
       detectedPath: detectedPath,
+      debugFs,
       env: process.env.NODE_ENV,
       serverTime: new Date().toISOString() 
     });
