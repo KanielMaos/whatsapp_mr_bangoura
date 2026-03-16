@@ -114,7 +114,13 @@ async function startServer() {
    * GET /api/health
    */
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', serverTime: new Date().toISOString() });
+    res.json({ 
+      status: 'ok', 
+      whatsappStatus: clientStatus,
+      hasQR: !!qrCodeData,
+      env: process.env.NODE_ENV,
+      serverTime: new Date().toISOString() 
+    });
   });
 
   /**
