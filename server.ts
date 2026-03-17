@@ -43,7 +43,7 @@ const createClient = () => {
     console.log('[Puppeteer] Lancement de la détection du binaire...');
     
     // 1. Essayer d'abord la variable d'env explicite si elle est définie
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
       detectedPath = process.env.PUPPETEER_EXECUTABLE_PATH;
       console.log(`[Puppeteer] Utilisation de PUPPETEER_EXECUTABLE_PATH : ${detectedPath}`);
     } else {
@@ -74,8 +74,7 @@ const createClient = () => {
       dataPath: AUTH_PATH,
     }),
     webVersionCache: {
-      type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1035216863.html',
+      type: 'local',
     },
     puppeteer: {
       headless: true,
@@ -85,8 +84,16 @@ const createClient = () => {
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--no-zygote',
+        '--single-process',
+        '--memory-pressure-off',
+        '--disable-extensions',
+        '--disable-software-rasterizer',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-ipc-flooding-protection',
+        '--disable-renderer-backgrounding'
       ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || detectedPath || undefined,
+      executablePath: detectedPath || undefined,
     },
   });
 
